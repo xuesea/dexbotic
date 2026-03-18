@@ -89,3 +89,29 @@ class ToConversation:
 
         episode_data_dict["conversations"] = conversations
         return episode_data_dict
+
+
+class ToConversationWithDiscreteState:
+    def __init__(self, valid_state_dim=32):
+        self.valid_state_dim = valid_state_dim
+
+    def process_prompt(self, episode_data_dict):
+        prompt = episode_data_dict["prompt"]
+        state = episode_data_dict["state"][: self.valid_state_dim]
+        discretized_state = (
+            np.digitize(state, bins=np.linspace(-1, 1, 256 + 1)[:-1]) - 1
+        )
+        state_str = " ".join(map(str, discretized_state))
+        episode_data_dict["prompt"] = f"Task: {prompt}, State: {state_str}"
+        return episode_data_dict
+
+    def __call__(self, episode_data_dict: dict, **kwargs) -> dict:
+        if "conversations" in episode_data_dict:
+            return episode_data_dict
+
+        episode_data_dict = self.process_prompt(episode_data_dict)
+        episode_data_dict["conversations"] = [
+            {"from": "human", "value": episode_data_dict.pop("prompt", "")},
+            {"from": "gpt", "value": episode_data_dict.pop("answer", "")},
+        ]
+        return episode_data_dict

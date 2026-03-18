@@ -1,19 +1,20 @@
 from typing import Dict, List, Sequence
 
-import transformers
 import numpy as np
+import torch
+import transformers
 
-from dexbotic.constants import DEFAULT_IMAGE_TOKEN
+from dexbotic.constants import DEFAULT_IMAGE_TOKEN, IGNORE_INDEX
 from dexbotic.data.dataset.tokenization import Tokenization
 from dexbotic.tokenization import conversation as conversation_lib
 from dexbotic.tokenization import tokenization as tokenization_lib
 
 
 def _process(
-        sources: Sequence[str],
-        tokenizer: transformers.PreTrainedTokenizer,
-        has_image: bool = False,
-        chat_template: str = "dexbotic",
+    sources: Sequence[str],
+    tokenizer: transformers.PreTrainedTokenizer,
+    has_image: bool = False,
+    chat_template: str = "dexbotic",
 ):
     if chat_template in ["dexbotic", "step"]:
         return tokenization_lib.tokenize_dexbotic(
@@ -30,14 +31,14 @@ def llava_multi_image_map_fn(conversations, mode="dexbotic"):
     messages = conversations
 
     for msg in messages:
-        if DEFAULT_IMAGE_TOKEN in msg['value']:
+        if DEFAULT_IMAGE_TOKEN in msg["value"]:
             # move the image token to the beginning of the sentence
-            msg['value'] = msg['value'].replace(DEFAULT_IMAGE_TOKEN, '').strip()
-            if mode == 'step':
-                msg['value'] = msg['value'] + f"<im_start>{DEFAULT_IMAGE_TOKEN}<im_end>"
+            msg["value"] = msg["value"].replace(DEFAULT_IMAGE_TOKEN, "").strip()
+            if mode == "step":
+                msg["value"] = msg["value"] + f"<im_start>{DEFAULT_IMAGE_TOKEN}<im_end>"
             else:
-                msg['value'] = DEFAULT_IMAGE_TOKEN + "\n" + msg['value']
-            msg['value'] = msg['value'].strip()
+                msg["value"] = DEFAULT_IMAGE_TOKEN + "\n" + msg["value"]
+            msg["value"] = msg["value"].strip()
 
     return conversations
 
@@ -46,9 +47,9 @@ def process_data_item(
     conversations: Dict,
     tokenizer: transformers.PreTrainedTokenizer,
     chat_template: str,
-    has_image: bool
+    has_image: bool,
 ) -> Dict:
-    conversations = llava_multi_image_map_fn(conversations)
+    conversations = llava_multi_image_map_fn(conversations, mode=chat_template)
     text_dict = _process(
         sources=[conversations],
         tokenizer=tokenizer,
@@ -120,11 +121,64 @@ class Pi0Tokenization(Tokenization):
 
     def __call__(self, conversations: List[Dict], **kwargs):
         prompt = conversations[0]["value"]
-        cleaned_prompt = prompt.strip().replace('\n', ' ').replace('_', ' ')
-        tokens = self.tokenizer.sp_model.encode(cleaned_prompt, add_bos=True) + self.tokenizer.sp_model.encode("\n")
+        cleaned_prompt = prompt.strip().replace("\n", " ").replace("_", " ")
+        tokens = self.tokenizer.sp_model.encode(
+            cleaned_prompt, add_bos=True
+        ) + self.tokenizer.sp_model.encode("\n")
         tokens = tokens[: self._max_len]
         tokens += [0] * (self._max_len - len(tokens))
         return {"input_ids": np.asarray(tokens), "labels": np.asarray(tokens)}
+
+
+class Pi05Tokenization(Tokenization):
+    def __init__(self, tokenizer: transformers.GemmaTokenizer, *args, **kwargs):
+        self.tokenizer = tokenizer
+        self._max_len = tokenizer.model_max_length
+
+    def clean_the_text(self, text):
+        return text.strip().replace("\n", " ").replace("_", " ").replace("<image>", "")
+
+    def __call__(self, conversations: List[Dict], **kwargs):
+        all_tokens = []
+        all_labels = []
+        for msg in conversations:
+            role = msg["from"]
+            if role not in ["human", "gpt"]:
+                continue
+            text = self.clean_the_text(msg["value"])
+            if text == "":
+                continue
+
+            if role == "human":
+                text = f"User: {text}\n"
+                tokens = self.tokenizer.sp_model.encode(text, add_bos=True)
+                labels = [IGNORE_INDEX] * len(tokens)
+            else:  # role == "gpt"
+                role_text = "Assistant: "
+                role_tokens = self.tokenizer.sp_model.encode(role_text, add_bos=False)
+                role_labels = [IGNORE_INDEX] * len(role_tokens)
+                text_tokens = self.tokenizer.sp_model.encode(
+                    text, add_bos=False, add_eos=True
+                )
+                text_labels = text_tokens
+                tokens = role_tokens + text_tokens
+                labels = role_labels + text_labels
+
+            all_tokens.extend(tokens)
+            all_labels.extend(labels)
+
+        assert len(all_tokens) == len(all_labels), "Tokens and labels length mismatch"
+        if len(all_tokens) > self._max_len:
+            print(
+                f"Warning: Truncating input from {len(all_tokens)} to {self._max_len} tokens."
+            )
+        all_tokens = all_tokens[: self._max_len]
+        all_labels = all_labels[: self._max_len]
+        padding_length = self._max_len - len(all_tokens)
+        all_tokens += [0] * padding_length
+        all_labels += [IGNORE_INDEX] * padding_length
+
+        return {"input_ids": np.asarray(all_tokens), "labels": np.asarray(all_labels)}
 
 
 class DM0Tokenization(Tokenization):

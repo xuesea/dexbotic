@@ -15,7 +15,10 @@ from dexbotic.data.dataset.augmentations import PixelAug
 from dexbotic.data.dataset.depth_preprocess import PreprocessDepth
 from dexbotic.data.dataset.rgb_preprocess import PreprocessRGB
 from dexbotic.data.dataset.transform.common import ExtracKeys, ToTensor
-from dexbotic.data.dataset.transform.language import ToConversation_Old
+from dexbotic.data.dataset.transform.language import (
+    ToConversation_Old,
+    ToConversationWithDiscreteState,
+)
 
 
 class DexDataset(Dataset):
@@ -42,6 +45,7 @@ class DexDataset(Dataset):
         self.images_keys = getattr(data_args, "images_keys", None)
         self.depths_keys = getattr(data_args, "depths_keys", None)
         self.load_depth = getattr(data_args, "load_depth", False)
+        self.discrete_state_input = getattr(data_args, "discrete_state_input", False)
 
         self.action_process_func = action_process_func
         self.tokenization_func = tokenization_func
@@ -176,6 +180,12 @@ class DexDataset(Dataset):
         rng.shuffle(data_index)
         return data_index
 
+    def get_valid_state_dim(self, episode_data_list):
+        if len(episode_data_list) == 0 or "state" not in episode_data_list[0]:
+            return 0
+        state = episode_data_list[0]["state"]
+        return len(state) if isinstance(state, list) else 0
+
     def unsafe_getitem(self, idx) -> dict:
         dataset_index, file_index, frame_index = self.global_index[idx]
         jsonl_file = self.file_name_map[file_index]
@@ -184,6 +194,7 @@ class DexDataset(Dataset):
         meta_data = dataset_info["meta_data"]
         data_path_prefix = dataset_info["data_path_prefix"]
         episode_data_list = load_jsonl(jsonl_file, parse=True)
+        valid_state_dim = self.get_valid_state_dim(episode_data_list)
 
         # NOTE: due to the action shift in AddAction, the length of episode_data_list may be less than frame_index.
         #     In this case, we will use a random frame_index.
@@ -251,7 +262,10 @@ class DexDataset(Dataset):
 
         # 4. tokenize the prompt
         if "conversations" not in data:
-            data = ToConversation_Old()(data)
+            if self.discrete_state_input:
+                data = ToConversationWithDiscreteState(valid_state_dim)(data)
+            else:
+                data = ToConversation_Old()(data)
         conversations = data["conversations"]
         tokenized_dict = self.tokenization_func(
             conversations=conversations, has_image=True
@@ -270,6 +284,7 @@ class DexDataset(Dataset):
         try:
             return self.unsafe_getitem(idx)
         except Exception:
+            print("Error in loading data, using a random sample instead.")
             return self.unsafe_getitem(random.randint(0, len(self) - 1))
 
     def __len__(self):

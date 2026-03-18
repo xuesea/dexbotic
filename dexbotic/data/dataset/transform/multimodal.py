@@ -38,12 +38,13 @@ class LoadMultiModal:
            load_depth: bool, whether to load depth data. Default: False
         """
 
-        fram_indicies = episode_data_dict['meta_data']['fram_indicies']
-        num_images = episode_data_dict['meta_data']['num_images']
-        image_keys = episode_data_dict['meta_data']['images_keys']
-        depths_keys = episode_data_dict['meta_data']['depths_keys']
-        load_depth = episode_data_dict['meta_data']['load_depth']
-        data_path_prefix = episode_data_dict['meta_data']['data_path_prefix']
+        fram_indicies = episode_data_dict["meta_data"]["fram_indicies"]
+        num_images = episode_data_dict["meta_data"]["num_images"]
+        image_keys = episode_data_dict["meta_data"]["images_keys"]
+        depths_keys = episode_data_dict["meta_data"]["depths_keys"]
+        load_depth = episode_data_dict["meta_data"]["load_depth"]
+        data_path_prefix = episode_data_dict["meta_data"]["data_path_prefix"]
+        episode_length = len(episode_data_dict["is_robot"])
 
         if isinstance(fram_indicies, np.ndarray):
             fram_indicies = fram_indicies.tolist()
@@ -58,8 +59,11 @@ class LoadMultiModal:
             keys_to_parse = [key for key in image_keys if key in episode_data_dict.keys()]
         keys_to_parse.sort()
         if self.return_masks:
-            image_masks = [True if f"images_{i}" in episode_data_dict.keys() else False for i in range(1, num_images + 1)]
-            episode_data_dict["image_masks"] = np.array([image_masks] * len(episode_data_dict['prompt']))
+            image_masks = [
+                True if f"images_{i}" in episode_data_dict.keys() else False
+                for i in range(1, num_images + 1)
+            ]
+            episode_data_dict["image_masks"] = np.array([image_masks] * episode_length)
         if num_images is not None:
             keys_to_parse = keys_to_parse[:num_images]
 

@@ -115,6 +115,23 @@ class ExtracKeys:
         return {key: episode_data_dict[key] for key in keys}
 
 
+class AddStateFlag:
+    def __init__(self, empty_state_value: np.ndarray, enable=True):
+        self.empty_state_value = empty_state_value
+        self.enable = enable
+
+    def __call__(self, episode_data_dict: dict, **kwargs) -> dict:
+        if not self.enable:
+            return episode_data_dict
+
+        episode_data_dict["has_state"] = np.ones((1,), dtype=bool)
+        if "state" not in episode_data_dict:
+            episode_data_dict["state"] = np.zeros_like(self.empty_state_value)
+            episode_data_dict["has_state"] = np.zeros((1,), dtype=bool)
+
+        return episode_data_dict
+
+
 class AddActionFlag:
     def __init__(self, empty_action_value: np.ndarray, enable=True):
         self.empty_action_value = empty_action_value
