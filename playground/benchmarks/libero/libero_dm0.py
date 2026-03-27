@@ -69,8 +69,10 @@ class DM0OptimizerConfig(_DM0OptimizerConfig):
 class DM0TrainerConfig(_DM0TrainerConfig):
     wandb_project: str = field(default="dm0_sft_libero")
     bf16: bool = field(default=True)
-    num_train_steps: int = field(default=80000)
-    save_steps: int = field(default=5000)
+    # num_train_steps: int = field(default=80000)
+    # save_steps: int = field(default=5000)
+    num_train_steps: int = field(default=800)
+    save_steps: int = field(default=200)
     save_total_limit: int = field(default=20)
     per_device_train_batch_size: int = field(default=4)
     gradient_checkpointing: bool = field(default=True)
@@ -146,7 +148,7 @@ class DM0DataConfig(_DM0DataConfig):
 
 @dataclass
 class DM0ModelConfig(_DM0ModelConfig):
-    model_name_or_path: str = field(default="./checkpoints/DM0-base")
+    model_name_or_path: str = field(default="./checkpoints/Dexbotic-DM0/")
 
     def build_model(self) -> DM0ForCausalLM:
         model = DM0ForCausalLM.from_pretrained(self.model_name_or_path)

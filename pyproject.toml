@@ -95,9 +95,15 @@ attention = [
     "flash_attn",
     "xformers"
 ]
+# RL training via RLinf: pip install rlinf (editable/path) then: pip install -e ".[rlinf]"
+rlinf = [
+    "hydra-core>=1.3.0",
+    "omegaconf",
+]
 
-[tool.setuptools]
-packages = ["dexbotic"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dexbotic*"]
 
 [tool.autopep8]
 max_line_length = 88

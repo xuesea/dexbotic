@@ -1,0 +1,29 @@
+# Registered as dexbotic_pi05; policy loader not implemented yet in rlinf_bridge.
+model_type: "dexbotic_pi05"
+
+model_path: "/path/to/model/dexbotic_pi05"
+
+precision: null
+num_action_chunks: 10
+action_dim: 7
+add_value_head: True
+
+is_lora: False
+lora_rank: 32
+
+use_proprio: True
+num_steps: 10
+
+safe_get_logprob: False
+chunk_critic_input: True
+
+dexbotic:
+  num_images_in_input: 2
+  noise_level: 0.5
+  action_chunk: ${actor.model.num_action_chunks}
+  num_steps: ${actor.model.num_steps}
+  train_expert_only: True
+  action_env_dim: ${actor.model.action_dim}
+  noise_method: "flow_sde"
+  add_value_head: ${actor.model.add_value_head}
+  detach_critic_input: False
