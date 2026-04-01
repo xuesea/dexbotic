@@ -277,4 +277,4 @@ For detailed parameter descriptions, refer to the **[LeRobot Asynchronous Infere
 
 Following the above instructions, we conducted a **Collect Longans into the Box** task on our XLeRobot robot, and provide a successful demo video below:
 
-**[📹 View Demo Video: Collect Longans into the Box](hardware/xlerobot/demo_collect_longans_into_the_box.mp4)**
+**[📹 View Demo Video: Collect Longans into the Box](../xlerobot/demo_collect_longans_into_the_box.mp4)**
