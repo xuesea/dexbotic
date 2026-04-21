@@ -248,9 +248,6 @@ class ActionNorm:
         self.use_quantiles = use_quantiles
 
     def __call__(self, episode_data_dict: dict, **kwargs) -> dict:
-        if "action" not in episode_data_dict:
-            return episode_data_dict
-
         for key in self.statistic_mapping.keys():
             if self.strict:
                 # TODO: need a better way to handle default key
